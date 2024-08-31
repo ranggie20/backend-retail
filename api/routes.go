@@ -3,6 +3,8 @@ package api
 import (
 	"database/sql"
 	"net/http"
+	"os"
+	"path"
 
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
@@ -215,6 +217,14 @@ func New(db *sql.DB, rdb *redis.Client, q queue.Queuer, bucket buckets.Bucket, m
 		r.Get("/popular", CoursesHandler.GetPopularCourses)
 		r.Get("/price", CoursesHandler.GetCoursePrice)
 		r.Get("/get-course/{course_id}", CoursesHandler.GetCourseByID)
+	})
+
+	workingDir, _ := os.Getwd()
+	fileServer := http.FileServer(http.Dir(path.Join(workingDir, "public")))
+	r.Route("/static", func(r chi.Router) {
+		r.Use(auth.AuthMiddleware)
+
+		r.Handle("/*", http.StripPrefix("/static/", fileServer))
 	})
 
 	r.Route("/auth", func(r chi.Router) {
