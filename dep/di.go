@@ -7,8 +7,9 @@ import (
 	"time"
 
 	"github.com/go-chi/cors"
-	// _ "github.com/lib/pq"
-	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/lib/pq"
+
+	// _ "github.com/go-sql-driver/mysql"
 
 	"github.com/online-bnsp/backend/api"
 	"github.com/online-bnsp/backend/middleware/auth"

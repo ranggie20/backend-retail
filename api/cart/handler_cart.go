@@ -119,16 +119,33 @@ func (h *Handler) GetAllCart(w http.ResponseWriter, r *http.Request) {
 	util.NewResponse(http.StatusOK, http.StatusOK, "", res).WriteResponse(w, r)
 }
 
-func (h *Handler) GetCart(w http.ResponseWriter, r *http.Request) {
-	// Call the method that executes the GetCart query
-	data, err := h.db.GetCart(r.Context())
+func (h *Handler) GetCartByUserID(w http.ResponseWriter, r *http.Request) {
+	// Ambil user_id dari parameter URL atau query string
+	userID := r.URL.Query().Get("user_id")
+	if userID == "" {
+		http.Error(w, "user_id is required", http.StatusBadRequest)
+		return
+	}
+
+	// Panggil metode yang mengeksekusi query GetCartByUserID
+	userIDInt, err := strconv.Atoi(userID)
+	if err != nil {
+		http.Error(w, "Invalid user_id", http.StatusBadRequest)
+		return
+	}
+
+	// Panggil metode yang mengeksekusi query GetCartByUserID
+	data, err := h.db.GetCartByUserID(r.Context(), sql.NullInt32{
+		Int32: int32(userIDInt),
+		Valid: true,
+	})
 	if err != nil {
 		log.Println("error fetching cart data:", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	// Convert the database result to the response format
+	// Konversi hasil database ke format response
 	var res []GetCartRow
 	for _, c := range data {
 		res = append(res, GetCartRow{
@@ -138,7 +155,7 @@ func (h *Handler) GetCart(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	// Send the response
+	// Kirim response
 	util.NewResponse(http.StatusOK, http.StatusOK, "", res).WriteResponse(w, r)
 }
 

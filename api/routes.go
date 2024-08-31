@@ -104,17 +104,22 @@ func New(db *sql.DB, rdb *redis.Client, q queue.Queuer, bucket buckets.Bucket, m
 
 	// Cart Handler
 	CartHandler := cart.NewHandler(validate, dbGenerated)
-	// Routes for cart
-	r.Post("/create-cart", CartHandler.CreateCart)
-	r.Get("/getall-cart", CartHandler.GetAllCart)
-	r.Delete("/delete-cart/{user_id}", CartHandler.DeleteCart)
-	r.Get("/cartpage", CartHandler.GetCart)
+	r.Route("/cart", func(r chi.Router) {
+		r.Use(auth.AuthMiddleware)
+		r.Use(auth.RequireRole("student"))
+		r.Post("/create-cart", CartHandler.CreateCart)
+		r.Get("/getall-cart", CartHandler.GetAllCart)
+		r.Delete("/delete-cart/{user_id}", CartHandler.DeleteCart)
+		r.Get("/cartpage", CartHandler.GetCartByUserID)
+	})
 
 	//course_video handler
 	coursesVideo := coursesvideo.NewHandler(validate, dbGenerated)
+
 	r.Get("/course_video", coursesVideo.GetCourseVideoHandler)
 	// route course_video
 	r.Route("/course_video", func(r chi.Router) {
+		r.Use(auth.AuthMiddleware)
 		r.Use(auth.RequireRole("teacher"))
 		r.Post("/create-course_video", coursesVideo.CreateCourseVideo)
 		r.Put("/update-course_video/{id}", coursesVideo.UpdateCourseVideo)
@@ -123,8 +128,9 @@ func New(db *sql.DB, rdb *redis.Client, q queue.Queuer, bucket buckets.Bucket, m
 
 	// Wishlist Handler
 	WishlistHandler := wishlist.NewHandler(validate, dbGenerated)
-	// Routes for wishlist
 	r.Route("/wishlist", func(r chi.Router) {
+		r.Use(auth.AuthMiddleware)
+		r.Use(auth.RequireRole("student"))
 		r.Post("/create-wishlist", WishlistHandler.CreateWishlist)
 		r.Get("/wishlist", WishlistHandler.GetAllWishlist)
 		r.Delete("/delete-wishlist/{user_id}", WishlistHandler.DeleteWishlist)
@@ -132,14 +138,30 @@ func New(db *sql.DB, rdb *redis.Client, q queue.Queuer, bucket buckets.Bucket, m
 
 	// User Handler
 	userHandler := user.NewHandler(validate, dbGenerated)
+	r.Route("/my-user", func(r chi.Router) {
+		r.Use(auth.AuthMiddleware)
+		r.Use(auth.RequireRole("student"))
+		r.Put("/profile/{id}", userHandler.UpdateUser)
+		r.Get("/list-teacher", userHandler.GetAllUserByTeacher)
+	})
 	//route user
 	r.Route("/user", func(r chi.Router) {
 		r.Post("/register", userHandler.CreateUser)
 		r.Get("/all-user", userHandler.GetAllUser)
 		r.Get("/list-teacher", userHandler.GetAllUserByTeacher)
+		r.Get("/list-student", userHandler.GetAllUserByStudent)
 		r.Get("/user/{id}", userHandler.GetUserByID)
 		r.Put("/profile/{id}", userHandler.UpdateUser)
 		r.Post("/sign-in", userHandler.Login)
+	})
+	r.Route("/admin", func(r chi.Router) {
+		r.Use(auth.AuthMiddleware)
+		r.Use(auth.RequireRole("admin"))
+		r.Get("/all-user", userHandler.GetAllUser)
+		r.Get("/list-teacher", userHandler.GetAllUserByTeacher)
+		r.Get("/list-student", userHandler.GetAllUserByStudent)
+		r.Get("/list-payment", PaymentHandler.GetAllPayment)
+		r.Get("/list-subscription", SubscriptionHandler.GetAllSubscriptions)
 	})
 	// Category Handler
 	CategoryHandler := categories.NewHandler(validate, dbGenerated)

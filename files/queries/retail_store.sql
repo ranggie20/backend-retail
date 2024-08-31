@@ -19,6 +19,9 @@ SELECT * FROM "users" WHERE user_id = $1;
 -- name: GetAllUserByTeacher :many
 SELECT * FROM "users" WHERE role = $1;
 
+-- name: GetAllUserByStudent :many
+SELECT * FROM "users" WHERE role = $1;
+
 -- name: UpdateUser :exec
 UPDATE "users" SET nama = $1, email = $2, password = $3, role = $4, photo = $5 WHERE user_id = $6;
 
@@ -177,10 +180,10 @@ INSERT INTO wishlist (
 );
 
 -- name: GetAllWishlists :many
-SELECT * FROM wishlist;
+SELECT * FROM wishlist WHERE user_id = $1;
 
 -- name: GetWishlistByID :one
-SELECT * FROM wishlist WHERE wishlist_id = $1;
+SELECT * FROM wishlist WHERE user_id = $1;
 
 -- name: UpdateWishlist :exec
 UPDATE wishlist SET user_id = $2, course_id = $3, updated_at = $4 WHERE wishlist_id = $1;
@@ -203,7 +206,7 @@ INSERT INTO cart(
 -- name: GetAllCart :many
 SELECT * FROM cart;
 
--- name: GetCart :many 
+-- name: GetCartByUserID :many 
 SELECT
 	cs.course_id,
 	cs.thumbnail,
@@ -214,7 +217,8 @@ SELECT
 FROM
     cart cr
 LEFT JOIN courses cs 
-ON cr.course_id = cs.course_id;
+ON cr.course_id = cs.course_id 
+WHERE cr.user_id = $1;
 
 
 -- name: UpdateCart :exec

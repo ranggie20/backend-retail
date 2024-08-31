@@ -108,6 +108,31 @@ func (h *Handler) GetAllUser(w http.ResponseWriter, r *http.Request) {
 	util.NewResponse(http.StatusOK, http.StatusOK, "", res).WriteResponse(w, r)
 }
 
+func (h *Handler) GetAllUserByStudent(w http.ResponseWriter, r *http.Request) {
+	// Mengambil semua user dengan role "student" dari database
+	data, err := h.db.GetAllUserByStudent(r.Context(), "student")
+	if err != nil {
+		log.Println("error fetching student data:", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Menyiapkan slice untuk response
+	var res []User
+	for _, d := range data {
+		res = append(res, User{
+			UserID: d.UserID,
+			Nama:   d.Nama,
+			Email:  d.Email,
+			Role:   d.Role,
+			Photo:  d.Photo.String,
+		})
+	}
+
+	// Mengirim response dengan status OK
+	util.NewResponse(http.StatusOK, http.StatusOK, "", res).WriteResponse(w, r)
+}
+
 func (h *Handler) GetAllUserByTeacher(w http.ResponseWriter, r *http.Request) {
 	// Mengambil semua user dengan role "teacher" dari database
 	data, err := h.db.GetAllUserByTeacher(r.Context(), "teacher")

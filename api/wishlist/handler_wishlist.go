@@ -59,7 +59,8 @@ func (h *Handler) CreateWishlist(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetAllWishlist(w http.ResponseWriter, r *http.Request) {
-	data, err := h.db.GetAllWishlists(r.Context())
+	userID := r.Context().Value("userID").(sql.NullInt32)
+	data, err := h.db.GetAllWishlists(r.Context(), userID)
 	if err != nil {
 		log.Println("error fetching all wishlist items:", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -70,8 +71,7 @@ func (h *Handler) GetAllWishlist(w http.ResponseWriter, r *http.Request) {
 	for _, d := range data {
 		res = append(res, Wishlist{
 			WishlistID: d.WishlistID,
-			UserID:     d.UserID.Int32,
-			CourseID:   d.CourseID.Int32,
+			// ...
 		})
 	}
 
@@ -80,14 +80,14 @@ func (h *Handler) GetAllWishlist(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) GetWishlistByID(w http.ResponseWriter, r *http.Request) {
 	idParam := chi.URLParam(r, "id")
-	id, err := strconv.ParseInt(idParam, 10, 32)
+	user_id, err := strconv.ParseInt(idParam, 10, 32)
 	if err != nil {
 		log.Println("error parsing ID:", err)
 		util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, "Invalid ID format", struct{}{}).WriteResponse(w, r)
 		return
 	}
 
-	data, err := h.db.GetWishlistByID(r.Context(), int32(id))
+	data, err := h.db.GetWishlistByID(r.Context(), sql.NullInt32{Int32: int32(user_id), Valid: true})
 	if err == sql.ErrNoRows {
 		util.NewResponse(http.StatusUnauthorized, http.StatusUnauthorized, "Invalid ID", struct{}{}).WriteResponse(w, r)
 		return
