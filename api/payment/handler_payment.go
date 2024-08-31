@@ -1,11 +1,11 @@
 package payment
 
 import (
-	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 	repo "github.com/online-bnsp/backend/repo/generated"
@@ -13,6 +13,18 @@ import (
 )
 
 func (h *Handler) CreatePayment(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("user_id")
+	if userID == "" {
+		http.Error(w, "user_id is required", http.StatusBadRequest)
+		return
+	}
+
+	userIDInt, ok := userID.(int32)
+	if !ok {
+		http.Error(w, "Invalid user_id", http.StatusBadRequest)
+		return
+	}
+
 	var req PaymentRequest
 
 	// Decode JSON request body
@@ -36,12 +48,26 @@ func (h *Handler) CreatePayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get course in cart
+	courses, err := h.db.GetCartByUserID(r.Context(), util.SqlInt32(userIDInt))
+	if err != nil {
+		log.Println("error in getting cart: ", err)
+		util.NewResponse(http.StatusInternalServerError, http.StatusInternalServerError, "Error in calculating total", struct{}{})
+		return
+	}
+
+	var totalAmount int32
+	for _, c := range courses {
+		totalAmount += c.TotalAmount.Int32
+	}
+
 	// Store payment in the database
 	err = h.db.CreatePayment(r.Context(), repo.CreatePaymentParams{
-		UserID:          sql.NullInt32{Int32: req.UserID, Valid: true},
-		PaymentMethodID: sql.NullInt32{Int32: req.PaymentMethodID, Valid: true},
-		PaymentStatusID: sql.NullInt32{Int32: req.PaymentStatusID, Valid: true},
-		TotalAmount:     util.SqlInt32(req.TotalAmount),
+		UserID:          util.SqlInt32(userIDInt),
+		PaymentMethodID: util.SqlInt32(req.PaymentMethodID),
+		PaymentStatusID: util.SqlInt32(1),
+		TotalAmount:     util.SqlInt32(totalAmount),
+		PaymentDate:     util.SqlTime(time.Now()),
 	})
 
 	if err != nil {
@@ -65,7 +91,7 @@ func (h *Handler) GetAllPayment(w http.ResponseWriter, r *http.Request) {
 	for _, d := range data {
 		res = append(res, Payment{
 			PaymentID:       d.PaymentID,
-			UserID:          d.UserID.Int32,          // Access Int32 value // Access Int32 value
+			UserID:          d.UserID.Int32,          // Access Int32 value
 			PaymentMethodID: d.PaymentMethodID.Int32, // Access Int32 value
 			PaymentStatusID: d.PaymentStatusID.Int32, // Access Int32 value
 			TotalAmount:     d.TotalAmount.Int32,
