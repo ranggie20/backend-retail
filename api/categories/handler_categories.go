@@ -121,6 +121,53 @@ func (h *Handler) GetAllCategories(w http.ResponseWriter, r *http.Request) {
 	util.NewResponse(http.StatusOK, http.StatusOK, "", res).WriteResponse(w, r)
 }
 
+func (h *Handler) GetCoursesByCategoryID(w http.ResponseWriter, r *http.Request) {
+	// Get the category ID from the URL parameters
+	categoryIDParam := chi.URLParam(r, "category_id")
+
+	// Convert categoryID to int32
+	categoryID, err := strconv.Atoi(categoryIDParam)
+	if err != nil {
+		log.Println("invalid category ID:", err)
+		util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, "Invalid category ID", struct{}{}).WriteResponse(w, r)
+		return
+	}
+
+	nullCategoryID := sql.NullInt32{
+		Int32: int32(categoryID),
+		Valid: true,
+	}
+
+	course, err := h.db.GetCoursesByCategoryID(r.Context(), nullCategoryID)
+	if err == sql.ErrNoRows {
+		util.NewResponse(http.StatusNotFound, http.StatusNotFound, "No courses found for this category", struct{}{}).WriteResponse(w, r)
+		return
+	} else if err != nil {
+		log.Println("error fetching courses by category ID:", err)
+		util.NewResponse(http.StatusInternalServerError, http.StatusInternalServerError, "Internal server error", struct{}{}).WriteResponse(w, r)
+		return
+	}
+
+	// Prepare the response
+	var res []Course
+	for _, c := range course {
+		res = append(res, Course{
+			CourseID:          c.CourseID,
+			CourseName:        c.CourseName,
+			CourseDescription: c.CourseDescription,
+			CategoryID:        c.CategoryID.Int32,
+			Price:             float64(c.Price),
+			Thumbnail:         sql.NullString{String: c.Thumbnail.String, Valid: true},
+			CreatedAt:         c.CreatedAt.Time,
+			UpdatedAt:         c.UpdatedAt.Time,
+			DeletedAt:         sql.NullTime{Time: c.DeletedAt.Time, Valid: true},
+		})
+	}
+
+	// Send the response
+	util.NewResponse(http.StatusOK, http.StatusOK, "", res).WriteResponse(w, r)
+}
+
 func (h *Handler) GetCategory(w http.ResponseWriter, r *http.Request) {
 	data, err := h.db.GetAllCategories(r.Context()) // Adjust the method name according to your actual implementation
 	if err != nil {
