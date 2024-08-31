@@ -27,3 +27,4 @@ backend
 backend.exe
 repo/generated
 build/
+public/

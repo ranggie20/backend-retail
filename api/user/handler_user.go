@@ -4,8 +4,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"os"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -22,11 +25,46 @@ import (
 func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var req UserRequest
 
-	// Decode JSON request body
-	err := json.NewDecoder(r.Body).Decode(&req)
+	// Parse form data
+	err := r.ParseMultipartForm(10 << 20) // batasan ukuran file (10MB)
 	if err != nil {
-		log.Printf("error parsing request: %v", err)
-		util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, "Error parsing request", struct{}{}).WriteResponse(w, r)
+		log.Printf("error parsing form data: %v", err)
+		util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, "Error parsing form data", struct{}{}).WriteResponse(w, r)
+		return
+	}
+
+	// Ambil data dari form
+	req.Nama = r.FormValue("nama")
+	req.Email = r.FormValue("email")
+	req.Password = r.FormValue("password")
+	req.Role = r.FormValue("role")
+
+	// Ambil file photo dari form
+	file, handler, err := r.FormFile("photo")
+	if err != nil {
+		log.Printf("error retrieving the file: %v", err)
+		util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, "Error retrieving the file", struct{}{}).WriteResponse(w, r)
+		return
+	}
+	defer file.Close()
+
+	// Simpan file photo
+	basePath, _ := os.Getwd()
+
+	publicPath := path.Join(basePath, "public")
+
+	photoPath := path.Join(publicPath, handler.Filename)
+	dst, err := os.Create(photoPath)
+	if err != nil {
+		log.Printf("error saving the file: %v", err)
+		util.NewResponse(http.StatusInternalServerError, http.StatusInternalServerError, "Error saving the file", struct{}{}).WriteResponse(w, r)
+		return
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, file); err != nil {
+		log.Printf("error copying the file: %v", err)
+		util.NewResponse(http.StatusInternalServerError, http.StatusInternalServerError, "Error copying the file", struct{}{}).WriteResponse(w, r)
 		return
 	}
 
@@ -51,15 +89,13 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Println(req)
-
 	// Store user in the database
 	err = h.db.CreateUser(r.Context(), repo.CreateUserParams{
 		Email:    req.Email,
 		Password: string(hashedPassword),
 		Nama:     req.Nama,
 		Role:     req.Role,
-		Photo:    util.SqlString(req.Photo),
+		Photo:    util.SqlString(photoPath), // Simpan path ke foto
 	})
 
 	if err != nil {
