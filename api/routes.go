@@ -82,6 +82,7 @@ func New(db *sql.DB, rdb *redis.Client, q queue.Queuer, bucket buckets.Bucket, m
 	PaymentStatusHandler := paymentstatus.NewHandler(validate, dbGenerated)
 	r.Route("/paymentstatus", func(r chi.Router) {
 		r.Use(auth.RequireRole("student"))
+
 		r.Post("/create-paymentsstatus", PaymentStatusHandler.CreatePaymentStatus)
 		r.Get("/get-paymentsstatus", PaymentStatusHandler.GetAllPaymentStatus)
 		r.Get("/get-paymentsstatus/{id}", PaymentStatusHandler.GetPaymentStatusById)
@@ -106,10 +107,13 @@ func New(db *sql.DB, rdb *redis.Client, q queue.Queuer, bucket buckets.Bucket, m
 	r.Route("/my-course", func(r chi.Router) {
 		r.Use(auth.AuthMiddleware)
 		r.Use(auth.RequireRole("student"))
+
 		r.Get("/", CoursesHandler.GetMyCoursePage)
 	})
 	r.Route("/teacher", func(r chi.Router) {
+		r.Use(auth.AuthMiddleware)
 		r.Use(auth.RequireRole("teacher", "admin"))
+
 		r.Post("/create-course", CoursesHandler.CreateCourses)
 		r.Put("/Update-course/{id}", CoursesHandler.UpdateCourse)
 		r.Delete("/delete-course/{id}", CoursesHandler.DeleteCourse)
@@ -120,6 +124,7 @@ func New(db *sql.DB, rdb *redis.Client, q queue.Queuer, bucket buckets.Bucket, m
 	r.Route("/cart", func(r chi.Router) {
 		r.Use(auth.AuthMiddleware)
 		r.Use(auth.RequireRole("student"))
+
 		r.Post("/create-cart", CartHandler.CreateCart)
 		r.Get("/getall-cart", CartHandler.GetAllCart)
 		r.Delete("/delete-cart/{user_id}", CartHandler.DeleteCart)
@@ -134,6 +139,7 @@ func New(db *sql.DB, rdb *redis.Client, q queue.Queuer, bucket buckets.Bucket, m
 	r.Route("/course_video", func(r chi.Router) {
 		r.Use(auth.AuthMiddleware)
 		r.Use(auth.RequireRole("teacher"))
+
 		r.Post("/create-course_video", coursesVideo.CreateCourseVideo)
 		r.Put("/update-course_video/{id}", coursesVideo.UpdateCourseVideo)
 		r.Delete("/delete-coursevideo/{id}", coursesVideo.DeleteCourseVideo)
@@ -144,6 +150,7 @@ func New(db *sql.DB, rdb *redis.Client, q queue.Queuer, bucket buckets.Bucket, m
 	r.Route("/wishlist", func(r chi.Router) {
 		r.Use(auth.AuthMiddleware)
 		r.Use(auth.RequireRole("student"))
+
 		r.Post("/create-wishlist", WishlistHandler.CreateWishlist)
 		r.Get("/wishlist", WishlistHandler.GetAllWishlist)
 		r.Delete("/delete-wishlist/{user_id}", WishlistHandler.DeleteWishlist)
@@ -154,6 +161,7 @@ func New(db *sql.DB, rdb *redis.Client, q queue.Queuer, bucket buckets.Bucket, m
 	r.Route("/my-user", func(r chi.Router) {
 		r.Use(auth.AuthMiddleware)
 		r.Use(auth.RequireRole("student"))
+
 		r.Put("/profile/{id}", userHandler.UpdateUser)
 		r.Get("/list-teacher", userHandler.GetAllUserByTeacher)
 	})
@@ -166,10 +174,17 @@ func New(db *sql.DB, rdb *redis.Client, q queue.Queuer, bucket buckets.Bucket, m
 		r.Get("/user/{id}", userHandler.GetUserByID)
 		r.Put("/profile/{id}", userHandler.UpdateUser)
 		r.Post("/sign-in", userHandler.Login)
+
+		r.Route("/sign-out", func(r chi.Router) {
+			r.Use(auth.AuthMiddleware)
+
+			r.Post("/", userHandler.Logout)
+		})
 	})
 	r.Route("/admin", func(r chi.Router) {
 		r.Use(auth.AuthMiddleware)
 		r.Use(auth.RequireRole("admin"))
+
 		r.Get("/all-user", userHandler.GetAllUser)
 		r.Get("/list-teacher", userHandler.GetAllUserByTeacher)
 		r.Get("/list-student", userHandler.GetAllUserByStudent)
@@ -180,7 +195,9 @@ func New(db *sql.DB, rdb *redis.Client, q queue.Queuer, bucket buckets.Bucket, m
 	CategoryHandler := categories.NewHandler(validate, dbGenerated)
 	// Routes for categories
 	r.Route("/category", func(r chi.Router) {
+		r.Use(auth.AuthMiddleware)
 		r.Use(auth.RequireRole("teacher", "admin")) // Middleware to require 'teacher' role
+
 		r.Post("/create-category", CategoryHandler.CreateCategory)
 		r.Put("/update-category/{id}", CategoryHandler.UpdateCategory)
 		r.Delete("/delete-category/{id}", CategoryHandler.DeleteCategory)
@@ -197,7 +214,12 @@ func New(db *sql.DB, rdb *redis.Client, q queue.Queuer, bucket buckets.Bucket, m
 		r.Get("/popular", CoursesHandler.GetPopularCourses)
 		r.Get("/price", CoursesHandler.GetCoursePrice)
 		r.Get("/get-course/{course_id}", CoursesHandler.GetCourseByID)
+	})
 
+	r.Route("/auth", func(r chi.Router) {
+		r.Use(auth.AuthMiddleware)
+
+		r.Get("/get-user-info", userHandler.GetUserInfo)
 	})
 
 	return h

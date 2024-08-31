@@ -306,14 +306,14 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	data, err := h.db.Login(ctx, req.Nama)
 	if err != nil {
 		log.Println("error no user:", err)
-		http.Error(w, "User salah", http.StatusNotFound)
+		util.NewResponse(http.StatusNotFound, http.StatusNotFound, "User atau password salah", struct{}{}).WriteResponse(w, r)
 		return
 	}
 
 	bcrypt.CompareHashAndPassword([]byte(data.Password), []byte(req.Password))
 	if err != nil {
 		log.Println("error no user:", err)
-		http.Error(w, "password salah", http.StatusNotFound)
+		util.NewResponse(http.StatusNotFound, http.StatusNotFound, "User atau password salah", struct{}{}).WriteResponse(w, r)
 		return
 	}
 
@@ -328,7 +328,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(15 * time.Minute).Unix(),
 			IssuedAt:  time.Now().Unix(),
-			Issuer:    "your-app-name",
+			Issuer:    "elearning",
 		},
 	}
 
@@ -337,7 +337,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	tokenString, err := token.SignedString(jwtKey)
 	if err != nil {
 		log.Println("error creating token:", err)
-		http.Error(w, "Gagal membuat token", http.StatusInternalServerError)
+		util.NewResponse(http.StatusNotFound, http.StatusNotFound, "Sesi tidak dapat dibuat untuk user", struct{}{}).WriteResponse(w, r)
 		return
 	}
 
@@ -356,6 +356,20 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	resp.WriteResponse(w, r)
 }
 
+func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "token",
+		Value:    "",
+		Expires:  time.Now(),
+		HttpOnly: true,
+		Secure:   false,
+		Path:     "/",
+	})
+
+	resp := util.NewResponse(http.StatusOK, http.StatusOK, "Logout berhasil", map[string]interface{}{})
+	resp.WriteResponse(w, r)
+}
+
 func (h *Handler) ReadCookieAndVerifyToken(w http.ResponseWriter, r *http.Request) {
 
 	// Deklarasi kunci rahasia JWT
@@ -364,8 +378,8 @@ func (h *Handler) ReadCookieAndVerifyToken(w http.ResponseWriter, r *http.Reques
 	cookie, err := r.Cookie("token")
 	if err != nil {
 		if err == http.ErrNoCookie {
-			// Jika cookie tidak ditemukan
-			http.Error(w, "Cookie tidak ditemukan", http.StatusUnauthorized)
+			// Jika cookie salah
+			http.Error(w, "Cookie salah", http.StatusUnauthorized)
 			return
 		}
 		// Jika terjadi error lain saat membaca cookie
@@ -400,4 +414,25 @@ func (h *Handler) ReadCookieAndVerifyToken(w http.ResponseWriter, r *http.Reques
 
 	// Token valid, Anda dapat menggunakan klaim yang ada di dalam token
 	fmt.Fprintf(w, "Welcome %s!", claims.Username)
+}
+
+func (h *Handler) GetUserInfo(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	userID := ctx.Value("user_id")
+	role := ctx.Value("role")
+
+	if (userID == nil) || (role == nil) {
+		util.NewResponse(http.StatusUnauthorized, http.StatusUnauthorized, "Harap login terlebih dahulu", struct{}{}).WriteResponse(w, r)
+		return
+	}
+
+	userIDString, _ := userID.(int32)
+	roleString, _ := role.(string)
+
+	res := make(map[string]string)
+	res["user_id"] = fmt.Sprintf("%d", userIDString)
+	res["role"] = roleString
+
+	util.NewResponse(http.StatusOK, http.StatusOK, "OK", res).WriteResponse(w, r)
 }

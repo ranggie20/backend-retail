@@ -68,7 +68,7 @@ func (h *Handler) CreateCourses(w http.ResponseWriter, r *http.Request) {
 		util.NewResponse(http.StatusInternalServerError, http.StatusInternalServerError, "Error getting working directory", struct{}{}).WriteResponse(w, r)
 		return
 	}
-	publicPath := path.Join(basePath, "public")
+	publicPath := path.Join(basePath, "public", "course")
 	thumbnailPath := path.Join(publicPath, handler.Filename)
 	dst, err := os.Create(thumbnailPath)
 	if err != nil {
@@ -101,7 +101,7 @@ func (h *Handler) CreateCourses(w http.ResponseWriter, r *http.Request) {
 		CourseDescription: req.CourseDescription,
 		CategoryID:        util.SqlInt32(req.CategoryID),
 		Price:             req.Price,
-		Thumbnail:         sql.NullString{String: thumbnailPath, Valid: true},
+		Thumbnail:         util.SqlString(path.Join("public", "course", handler.Filename)),
 		DeletedAt:         sql.NullTime{},
 		CreatedAt:         sql.NullTime{Time: now, Valid: true},
 		UpdatedAt:         sql.NullTime{Time: now, Valid: true},

@@ -44,7 +44,7 @@ func (h *Handler) CreateCategory(w http.ResponseWriter, r *http.Request) {
 
 	// Simpan file icon
 	basePath, _ := os.Getwd()
-	publicPath := path.Join(basePath, "public")
+	publicPath := path.Join(basePath, "public", "category")
 	iconPath := path.Join(publicPath, handler.Filename)
 	dst, err := os.Create(iconPath)
 	if err != nil {
@@ -80,7 +80,7 @@ func (h *Handler) CreateCategory(w http.ResponseWriter, r *http.Request) {
 	// Save category data to the database
 	err = h.db.CreateCategory(r.Context(), repo.CreateCategoryParams{
 		CategoryName: req.CategoryName,
-		Icon:         util.SqlString(iconPath).String, // Save the path to the icon
+		Icon:         util.SqlString(path.Join("public", "category", handler.Filename)).String, // Save the path to the icon
 		CreatedAt:    sql.NullTime{Time: now, Valid: true},
 		UpdatedAt:    sql.NullTime{Time: now, Valid: true},
 	})
