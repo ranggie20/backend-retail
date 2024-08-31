@@ -1,0 +1,57 @@
+version: "3"
+
+services:
+  postgres:
+    image: postgres:15.3-alpine3.18
+    environment:
+      POSTGRES_USER: backendminers
+      POSTGRES_PASSWORD: S3cr3t
+      POSTGRES_DB: backendminers
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
+
+  adminer:
+    image: adminer
+    ports:
+      - 8080:8080
+
+  nsqlookupd:
+    # container_name: nsqlookupd
+    image: nsqio/nsq
+    command: /nsqlookupd
+    ports:
+      - "4160:4160"
+      - "4161:4161"
+  nsqd:
+    # container_name: nsqd
+    image: nsqio/nsq
+    command: /nsqd --broadcast-address=nsqd --lookupd-tcp-address=nsqlookupd:4160
+    depends_on:
+      - nsqlookupd
+    ports:
+      - "4150:4150"
+      - "4151:4151"
+  nsqadmin:
+    # container_name: nsqadmin
+    image: nsqio/nsq
+    command: /nsqadmin --lookupd-http-address=nsqlookupd:4161
+    depends_on:
+      - nsqlookupd
+    ports:
+      - "4171:4171"
+
+  redis:
+    image: "redis:alpine"
+    ports:
+      - "6379:6379"
+
+  # mailpit:
+  #   image: axllent/mailpit:latest
+  #   ports:
+  #     - 1025:1025 # SMTP port
+  #     - 8025:8025 # Web UI
+
+volumes:
+  pgdata:

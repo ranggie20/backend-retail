@@ -1,0 +1,173 @@
+package api
+
+import (
+	"database/sql"
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+	chiMiddleware "github.com/go-chi/chi/v5/middleware"
+	"github.com/go-playground/validator/v10"
+	"github.com/online-bnsp/backend/api/cart"
+	"github.com/online-bnsp/backend/api/categories"
+	"github.com/online-bnsp/backend/api/courses"
+	coursesvideo "github.com/online-bnsp/backend/api/courses_video"
+	"github.com/online-bnsp/backend/api/payment"
+	paymentmethod "github.com/online-bnsp/backend/api/payment_method"
+	"github.com/online-bnsp/backend/api/paymentstatus"
+	"github.com/online-bnsp/backend/api/subscriptions"
+	"github.com/online-bnsp/backend/api/user"
+	"github.com/online-bnsp/backend/api/wishlist"
+	"github.com/online-bnsp/backend/middleware"
+	"github.com/online-bnsp/backend/middleware/auth"
+	repo "github.com/online-bnsp/backend/repo/generated"
+	"github.com/online-bnsp/backend/util"
+	"github.com/online-bnsp/backend/util/buckets"
+	"github.com/online-bnsp/backend/util/mailer"
+	queue "github.com/online-bnsp/backend/util/queue"
+	"github.com/redis/go-redis/v9"
+)
+
+type Handler struct {
+	router *chi.Mux
+}
+
+type RoleMiddleware func(http.Handler) http.Handler
+
+var validate *validator.Validate
+
+func New(db *sql.DB, rdb *redis.Client, q queue.Queuer, bucket buckets.Bucket, mail *mailer.Mailer, cors RoleMiddleware) *Handler {
+	r := chi.NewMux()
+	r.Use(chiMiddleware.Logger)
+	r.Use(middleware.BirthTime)
+	r.Use(auth.ExtractTokenClaims) // Extract JWT claims into context
+	r.Use(cors)                    // CORS Middleware, if needed
+
+	h := &Handler{
+		router: r,
+	}
+
+	validate = validator.New(validator.WithRequiredStructEnabled())
+	dbGenerated := repo.New(db)
+
+	r.Get("/ping", h.Ping)
+	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
+		util.NewResponse(http.StatusNotFound, http.StatusNotFound, "404 Not found!", nil).WriteResponse(w, r)
+	})
+
+	//payment Handler
+	PaymentHandler := payment.NewHandler(validate, dbGenerated)
+	// Routes for payment
+	r.Post("/create-payment", PaymentHandler.CreatePayment)
+	r.Get("/get-payment", PaymentHandler.GetPayment)
+	r.Get("/get-paymenthistory", PaymentHandler.GetPaymentHistory)
+
+	//paymentmethod Handler
+	PaymentMethodHandler := paymentmethod.NewHandler(validate, dbGenerated)
+	// Routes for paymentmethod
+	r.Post("/create-paymentmethod", PaymentMethodHandler.CreatePaymentMethod)
+	r.Get("/get-paymentmethod", PaymentMethodHandler.GetAllPaymentMethod)
+	r.Get("/get-paymentmethod/{id}", PaymentMethodHandler.GetPaymentMethodById)
+
+	//paymentstatus Handler
+	PaymentStatusHandler := paymentstatus.NewHandler(validate, dbGenerated)
+	r.Route("/paymentstatus", func(r chi.Router) {
+		r.Use(auth.RequireRole("student"))
+		r.Post("/create-paymentsstatus", PaymentStatusHandler.CreatePaymentStatus)
+		r.Get("/get-paymentsstatus", PaymentStatusHandler.GetAllPaymentStatus)
+		r.Get("/get-paymentsstatus/{id}", PaymentStatusHandler.GetPaymentStatusById)
+	})
+	// Routes for paymentsstatus
+
+	//subscriptions Handler
+	SubscriptionHandler := subscriptions.NewHandler(validate, dbGenerated)
+	r.Post("/create-subscription", SubscriptionHandler.CreateSubscription)
+	r.Get("/get-subscription", SubscriptionHandler.GetAllSubscriptions)
+	// Routes for subscriptions
+	r.Post("/create-subscription", SubscriptionHandler.CreateSubscription)
+	r.Get("/get-subscription", SubscriptionHandler.GetAllSubscriptions)
+
+	// Course Handler
+	CoursesHandler := courses.NewHandler(validate, dbGenerated)
+	// Routes for courses
+
+	r.Route("/my-course", func(r chi.Router) {
+		r.Use(auth.AuthMiddleware)
+		r.Use(auth.RequireRole("student"))
+		r.Get("/", CoursesHandler.GetMyCoursePage)
+	})
+	r.Route("/teacher", func(r chi.Router) {
+		r.Use(auth.RequireRole("teacher", "admin"))
+		r.Post("/create-course", CoursesHandler.CreateCourses)
+		r.Put("/Update-course/{id}", CoursesHandler.UpdateCourse)
+		r.Delete("/delete-course/{id}", CoursesHandler.DeleteCourse)
+	})
+
+	// Cart Handler
+	CartHandler := cart.NewHandler(validate, dbGenerated)
+	// Routes for cart
+	r.Post("/create-cart", CartHandler.CreateCart)
+	r.Get("/getall-cart", CartHandler.GetAllCart)
+	r.Delete("/delete-cart/{user_id}", CartHandler.DeleteCart)
+	r.Get("/cartpage", CartHandler.GetCart)
+
+	//course_video handler
+	coursesVideo := coursesvideo.NewHandler(validate, dbGenerated)
+	r.Get("/course_video", coursesVideo.GetCourseVideoHandler)
+	// route course_video
+	r.Route("/course_video", func(r chi.Router) {
+		r.Use(auth.RequireRole("teacher"))
+		r.Post("/create-course_video", coursesVideo.CreateCourseVideo)
+		r.Put("/update-course_video/{id}", coursesVideo.UpdateCourseVideo)
+		r.Delete("/delete-coursevideo/{id}", coursesVideo.DeleteCourseVideo)
+	})
+
+	// Wishlist Handler
+	WishlistHandler := wishlist.NewHandler(validate, dbGenerated)
+	// Routes for wishlist
+	r.Route("/wishlist", func(r chi.Router) {
+		r.Post("/create-wishlist", WishlistHandler.CreateWishlist)
+		r.Get("/wishlist", WishlistHandler.GetAllWishlist)
+		r.Delete("/delete-wishlist/{user_id}", WishlistHandler.DeleteWishlist)
+	})
+
+	// User Handler
+	userHandler := user.NewHandler(validate, dbGenerated)
+	//route user
+	r.Route("/user", func(r chi.Router) {
+		r.Post("/register", userHandler.CreateUser)
+		r.Get("/all-user", userHandler.GetAllUser)
+		r.Get("/list-teacher", userHandler.GetAllUserByTeacher)
+		r.Get("/user/{id}", userHandler.GetUserByID)
+		r.Put("/profile/{id}", userHandler.UpdateUser)
+		r.Post("/sign-in", userHandler.Login)
+	})
+	// Category Handler
+	CategoryHandler := categories.NewHandler(validate, dbGenerated)
+	// Routes for categories
+	r.Route("/category", func(r chi.Router) {
+		r.Use(auth.RequireRole("teacher", "admin")) // Middleware to require 'teacher' role
+		r.Post("/create-category", CategoryHandler.CreateCategory)
+		r.Put("/update-category/{id}", CategoryHandler.UpdateCategory)
+		r.Delete("/delete-category/{id}", CategoryHandler.DeleteCategory)
+	})
+
+	r.Route("/public", func(r chi.Router) {
+		r.Get("/category", CategoryHandler.GetAllCategories)
+		r.Get("/categoryy", CategoryHandler.GetCategory) //getbynamecategory
+		r.Get("/category/{id}", CategoryHandler.GetCategoryByID)
+		r.Get("/course_video", coursesVideo.GetAllCourseVideos)
+		r.Get("/course_video/{id}", coursesVideo.GetCourseVideoByID)
+		r.Get("/getall-course", CoursesHandler.GetAllCourses)
+		r.Get("/home", CoursesHandler.GetCourseByNew)
+		r.Get("/popular", CoursesHandler.GetPopularCourses)
+		r.Get("/price", CoursesHandler.GetCoursePrice)
+		r.Get("/get-course/{course_id}", CoursesHandler.GetCourseByID)
+
+	})
+
+	return h
+}
+
+func (h *Handler) Handler() http.Handler {
+	return h.router
+}

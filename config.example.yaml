@@ -1,0 +1,53 @@
+server_addr: ":3000"
+logger_level: debug
+logger_output: console
+database: postgres://backendminers:S3cr3t@localhost:5432/backendminers?sslmode=disable
+
+jwt:
+  secret: 1q2w3e4r5t
+  ttl: 5m
+  refresh_ttl: 24h
+
+nsqd: localhost:4150
+nsqlookupd: localhost:4161
+nsq_max_inflight: 50
+nsq_max_attempts: 5
+nsq_workers: 2
+nsq_delay_time: 1
+
+redis_host: localhost:6379
+redis_pass:
+redis_db: 1
+
+# whatsapp:
+#   uri: https://test.com
+#   basic_auth: XXX
+
+# otp_sender: wa # `wa` or `stdout`
+
+# bucket:
+#   provider: s3 # choose either `s3` or `local` or `discard`
+#   local:
+#     path: ./temp/
+#     url_prefix: /images
+
+#   s3:
+#     uri: https://test.com
+#     access_key: 008001bbdb0d0d7******
+#     secret_key: P5MU4c7Y9iIyG6uYp0lsp0h*****
+#     token_key:
+#     region: idn
+#     bucket_name: apps-bucket
+
+# smtp:
+#   host: localhost
+#   port: 1025
+#   user:
+#   pass:
+
+# mail_sender: forgot@ceritakaos.id
+
+# qr_logo: ./files/logo.png
+
+cors:
+  allowed_origins: ["*"] # dont use * for production
