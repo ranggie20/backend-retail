@@ -121,15 +121,15 @@ func (h *Handler) GetAllCart(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) GetCartByUserID(w http.ResponseWriter, r *http.Request) {
 	// Ambil user_id dari parameter URL atau query string
-	userID := r.URL.Query().Get("user_id")
+	userID := r.Context().Value("user_id")
 	if userID == "" {
 		http.Error(w, "user_id is required", http.StatusBadRequest)
 		return
 	}
 
 	// Panggil metode yang mengeksekusi query GetCartByUserID
-	userIDInt, err := strconv.Atoi(userID)
-	if err != nil {
+	userIDInt, ok := userID.(int32)
+	if !ok {
 		http.Error(w, "Invalid user_id", http.StatusBadRequest)
 		return
 	}
@@ -149,9 +149,12 @@ func (h *Handler) GetCartByUserID(w http.ResponseWriter, r *http.Request) {
 	var res []GetCartRow
 	for _, c := range data {
 		res = append(res, GetCartRow{
-			CourseID:    c.CourseID,
-			CourseName:  c.CourseName,
-			TotalAmount: c.TotalAmount,
+			CourseID:    c.CourseID.Int32,
+			Thumbnail:   c.Thumbnail.String,
+			CourseName:  c.CourseName.String,
+			Price:       c.Price.Int32,
+			Quantity:    c.Quantity.Int32,
+			TotalAmount: c.TotalAmount.Int32,
 		})
 	}
 

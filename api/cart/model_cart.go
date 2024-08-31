@@ -1,7 +1,5 @@
 package cart
 
-import "database/sql"
-
 type (
 	// Model Cart yang sesuai dengan tabel cart
 	Cart struct {
@@ -24,11 +22,11 @@ type (
 		TotalAmount int32  `json:"total_amount" validate:"required"` // Total biaya (wajib diisi)
 	}
 	GetCartRow struct {
-		CourseID    sql.NullInt32  `json:"course_id"`
-		Thumbnail   sql.NullString `json:"thumbnail"`
-		CourseName  sql.NullString `json:"course_name"`
-		Price       sql.NullInt32  `json:"price"`
-		Quantity    sql.NullInt32  `json:"quantity"`
-		TotalAmount sql.NullInt32  `json:"total_amount"`
+		CourseID    int32  `json:"course_id"`
+		Thumbnail   string `json:"thumbnail"`
+		CourseName  string `json:"course_name"`
+		Price       int32  `json:"price"`
+		Quantity    int32  `json:"quantity"`
+		TotalAmount int32  `json:"total_amount"`
 	}
 )
