@@ -116,6 +116,9 @@ FROM courses c
 JOIN categories cr ON c.category_id = cr.category_id 
 WHERE cr.category_name;
 
+-- name: GetCoursesByCategoryID :many
+SELECT * FROM courses WHERE category_id = $1;
+
 
 -- name: GetCategoryByID :one
 SELECT * FROM categories WHERE category_id = $1;

@@ -1,6 +1,7 @@
 package categories
 
 import (
+	"database/sql"
 	"time"
 )
 
@@ -25,5 +26,16 @@ type (
 		CourseName   string `json:"course_name"`
 		CategoryID   int32  `json:"category_id"`
 		CategoryName string `json:"category_name"`
+	}
+	Course struct {
+		CourseID          int32          `json:"course_id"`
+		CourseName        string         `json:"course_name"`
+		CourseDescription string         `json:"course_description"`
+		CategoryID        int32          `json:"category_id"`
+		Price             float64        `json:"price"`
+		Thumbnail         sql.NullString `json:"thumbnail"`
+		CreatedAt         time.Time      `json:"created_at"`
+		UpdatedAt         time.Time      `json:"updated_at"`
+		DeletedAt         sql.NullTime   `json:"deleted_at"`
 	}
 )

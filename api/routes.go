@@ -177,6 +177,7 @@ func New(db *sql.DB, rdb *redis.Client, q queue.Queuer, bucket buckets.Bucket, m
 		r.Get("/category", CategoryHandler.GetAllCategories)
 		r.Get("/categoryy", CategoryHandler.GetCategory) //getbynamecategory
 		r.Get("/category/{id}", CategoryHandler.GetCategoryByID)
+		r.Get("/get-category/{category_id}", CategoryHandler.GetCoursesByCategoryID)
 		r.Get("/course_video", coursesVideo.GetAllCourseVideos)
 		r.Get("/course_video/{id}", coursesVideo.GetCourseVideoByID)
 		r.Get("/getall-course", CoursesHandler.GetAllCourses)
