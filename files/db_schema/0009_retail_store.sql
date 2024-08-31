@@ -102,8 +102,6 @@ CREATE TABLE subscriptions (
 CREATE TABLE payment (
   payment_id SERIAL PRIMARY KEY,
   user_id INTEGER,
-  course_id INTEGER,
-  subscription_id INTEGER,
   payment_method_id INTEGER,
   payment_status_id INTEGER,
   total_amount INTEGER,

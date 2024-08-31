@@ -169,25 +169,28 @@ func (h *Handler) UpdateWishlist(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeleteWishlist(w http.ResponseWriter, r *http.Request) {
-	// Get the user_id and course_id parameters from the URL
-	userIDParam := chi.URLParam(r, "user_id")
-
-	// Parse user_id and course_id from string to int32
-	userID, err := strconv.ParseInt(userIDParam, 10, 32)
-	if err != nil {
-		log.Println("error parsing user ID:", err)
-		util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, "Invalid user ID format", struct{}{}).WriteResponse(w, r)
+	// Ambil user_id dari r.Context().Value
+	userID := r.Context().Value("user_id")
+	if userID == nil {
+		http.Error(w, "user_id is required", http.StatusBadRequest)
 		return
 	}
 
-	// Create a sql.NullInt32 value
-	nullUserID := sql.NullInt32{
-		Int32: int32(userID),
-		Valid: true, // Set Valid to true since we have a valid user ID
+	// Cek apakah userID bisa di-cast ke tipe int32
+	userIDInt, ok := userID.(int32)
+	if !ok {
+		http.Error(w, "Invalid user_id", http.StatusBadRequest)
+		return
 	}
 
-	// Delete the wishlist item from the database
-	err = h.db.DeleteWishlist(r.Context(), nullUserID)
+	// Buat nilai sql.NullInt32 untuk userID
+	nullUserID := sql.NullInt32{
+		Int32: userIDInt,
+		Valid: true, // Set Valid to true karena kita memiliki user ID yang valid
+	}
+
+	// Hapus item wishlist dari database berdasarkan userID
+	err := h.db.DeleteWishlist(r.Context(), nullUserID)
 	if err == sql.ErrNoRows {
 		util.NewResponse(http.StatusNotFound, http.StatusNotFound, "Wishlist item not found", struct{}{}).WriteResponse(w, r)
 		return
@@ -197,5 +200,6 @@ func (h *Handler) DeleteWishlist(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Kirim response jika berhasil
 	util.NewResponse(http.StatusOK, http.StatusOK, "Wishlist item deleted successfully", struct{}{}).WriteResponse(w, r)
 }

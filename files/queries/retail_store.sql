@@ -297,14 +297,12 @@ SELECT * FROM subscriptions WHERE subscription_id = $1;
 -- name: CreatePayment :exec
 INSERT INTO payment (
     user_id,
-    course_id,
-    subscription_id,
     payment_method_id,
     payment_status_id,
     total_amount,
     payment_date
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7
+    $1, $2, $3, $4, $5
 );
 
 -- name: GetPayment :many
@@ -316,7 +314,7 @@ INSERT INTO payment (
     p.total_amount, 
     pm.payment_method_name, 
     p.payment_date
-  FROM payment p 
+  FROM payment p  
   LEFT JOIN payment_method pm 
     ON p.payment_method_id = pm.payment_method_id 
   LEFT JOIN subscriptions s 

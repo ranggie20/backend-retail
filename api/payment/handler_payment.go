@@ -39,8 +39,6 @@ func (h *Handler) CreatePayment(w http.ResponseWriter, r *http.Request) {
 	// Store payment in the database
 	err = h.db.CreatePayment(r.Context(), repo.CreatePaymentParams{
 		UserID:          sql.NullInt32{Int32: req.UserID, Valid: true},
-		CourseID:        sql.NullInt32{Int32: req.CourseID, Valid: true},
-		SubscriptionID:  sql.NullInt32{Int32: req.SubscriptionID, Valid: true},
 		PaymentMethodID: sql.NullInt32{Int32: req.PaymentMethodID, Valid: true},
 		PaymentStatusID: sql.NullInt32{Int32: req.PaymentStatusID, Valid: true},
 		TotalAmount:     util.SqlInt32(req.TotalAmount),
@@ -67,9 +65,7 @@ func (h *Handler) GetAllPayment(w http.ResponseWriter, r *http.Request) {
 	for _, d := range data {
 		res = append(res, Payment{
 			PaymentID:       d.PaymentID,
-			UserID:          d.UserID.Int32,          // Access Int32 value
-			CourseID:        d.CourseID.Int32,        // Access Int32 value
-			SubscriptionID:  d.SubscriptionID.Int32,  // Access Int32 value
+			UserID:          d.UserID.Int32,          // Access Int32 value // Access Int32 value
 			PaymentMethodID: d.PaymentMethodID.Int32, // Access Int32 value
 			PaymentStatusID: d.PaymentStatusID.Int32, // Access Int32 value
 			TotalAmount:     d.TotalAmount.Int32,
