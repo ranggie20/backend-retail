@@ -3,8 +3,11 @@ package courses
 import (
 	"database/sql"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
+	"os"
+	"path"
 	"strconv"
 	"time"
 
@@ -15,49 +18,111 @@ import (
 
 func (h *Handler) CreateCourses(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	resp := util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, "Bad request", map[string]interface{}{})
 
-	var req CourseRequest
-	err := json.NewDecoder(r.Body).Decode(&req)
+	// Parse form data
+	err := r.ParseMultipartForm(10 << 20) // 10MB limit
 	if err != nil {
-		log.Println("error parsing request:", err)
-		resp = util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, "Error parsing request", struct{}{})
-		resp.WriteResponse(w, r)
+		log.Printf("error parsing form data: %v", err)
+		util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, "Error parsing form data", struct{}{}).WriteResponse(w, r)
 		return
 	}
+
+	// Ambil data dari form
+	var req CourseRequest
+	req.CourseName = r.FormValue("course_name")
+	req.CourseDescription = r.FormValue("course_description")
+
+	// Convert category_id to int32
+	categoryIDStr := r.FormValue("category_id")
+	categoryID, err := strconv.Atoi(categoryIDStr)
+	if err != nil {
+		log.Printf("error converting category_id to int32: %v", err)
+		util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, "Invalid category_id", struct{}{}).WriteResponse(w, r)
+		return
+	}
+	req.CategoryID = int32(categoryID) // Convert int to int32
+
+	// Convert price to float64
+	priceStr := r.FormValue("price")
+	price, err := strconv.ParseFloat(priceStr, 64)
+	if err != nil {
+		log.Printf("error converting price to float64: %v", err)
+		util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, "Invalid price", struct{}{}).WriteResponse(w, r)
+		return
+	}
+	req.Price = int32(price)
+
+	// Ambil file thumbnail dari form
+	file, handler, err := r.FormFile("thumbnail")
+	if err != nil {
+		log.Printf("error retrieving the file: %v", err)
+		util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, "Error retrieving the file", struct{}{}).WriteResponse(w, r)
+		return
+	}
+	defer file.Close()
+
+	// Simpan file thumbnail
+	basePath, err := os.Getwd()
+	if err != nil {
+		log.Printf("error getting current working directory: %v", err)
+		util.NewResponse(http.StatusInternalServerError, http.StatusInternalServerError, "Error getting working directory", struct{}{}).WriteResponse(w, r)
+		return
+	}
+	publicPath := path.Join(basePath, "public")
+	thumbnailPath := path.Join(publicPath, handler.Filename)
+	dst, err := os.Create(thumbnailPath)
+	if err != nil {
+		log.Printf("error creating file: %v", err)
+		util.NewResponse(http.StatusInternalServerError, http.StatusInternalServerError, "Error creating file", struct{}{}).WriteResponse(w, r)
+		return
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, file); err != nil {
+		log.Printf("error copying the file: %v", err)
+		util.NewResponse(http.StatusInternalServerError, http.StatusInternalServerError, "Error copying the file", struct{}{}).WriteResponse(w, r)
+		return
+	}
+
+	// Update the request with the thumbnail path
+	req.Thumbnail = handler.Filename
 
 	// Validate request
 	if err := h.validate.Struct(req); err != nil {
 		log.Println("error validating request:", err)
-		resp = util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, err.Error(), struct{}{})
-		resp.WriteResponse(w, r)
+		util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, err.Error(), struct{}{}).WriteResponse(w, r)
 		return
 	}
 
 	now := time.Now()
-	// Save Data item to database
+	// Save course data to the database
 	err = h.db.CreateCourse(ctx, repo.CreateCourseParams{
 		CourseName:        req.CourseName,
 		CourseDescription: req.CourseDescription,
 		CategoryID:        util.SqlInt32(req.CategoryID),
 		Price:             req.Price,
-		Thumbnail:         sql.NullString{String: req.Thumbnail, Valid: req.Thumbnail != ""},
+		Thumbnail:         sql.NullString{String: thumbnailPath, Valid: true},
 		DeletedAt:         sql.NullTime{},
 		CreatedAt:         sql.NullTime{Time: now, Valid: true},
 		UpdatedAt:         sql.NullTime{Time: now, Valid: true},
 	})
 
 	if err != nil {
-		log.Println("error storing category to db:", err)
-		resp = util.NewResponse(http.StatusInternalServerError, http.StatusInternalServerError, "Try again later", struct{}{})
-		resp.WriteResponse(w, r)
+		log.Println("error storing course to db:", err)
+		util.NewResponse(http.StatusInternalServerError, http.StatusInternalServerError, "Error creating course", struct{}{}).WriteResponse(w, r)
 		return
 	}
 
-	resp.Status = http.StatusOK
-	resp.Code = http.StatusOK
-	resp.Message = "Category has been created successfully"
-	resp.WriteResponse(w, r)
+	// Create a response with the course data
+	responseData := map[string]interface{}{
+		"course_name":        req.CourseName,
+		"course_description": req.CourseDescription,
+		"category_id":        req.CategoryID,
+		"price":              req.Price,
+		"thumbnail":          req.Thumbnail,
+	}
+
+	util.NewResponse(http.StatusOK, http.StatusOK, "Course created successfully", responseData).WriteResponse(w, r)
 }
 
 func (h *Handler) GetAllCourses(w http.ResponseWriter, r *http.Request) {

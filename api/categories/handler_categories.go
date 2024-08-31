@@ -3,58 +3,101 @@ package categories
 import (
 	"database/sql"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
+	"os"
+	"path"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-playground/validator/v10"
 	repo "github.com/online-bnsp/backend/repo/generated"
 	"github.com/online-bnsp/backend/util"
 )
 
 // CreateCategory handles the creation of a new category
 func (h *Handler) CreateCategory(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	resp := util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, "Bad request", map[string]interface{}{})
-
 	var req CategoryRequest
-	err := json.NewDecoder(r.Body).Decode(&req)
+
+	// Parse form data
+	err := r.ParseMultipartForm(10 << 20) // batasan ukuran file (10MB)
 	if err != nil {
-		log.Println("error parsing request:", err)
-		resp = util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, "Error parsing request", struct{}{})
-		resp.WriteResponse(w, r)
+		log.Printf("error parsing form data: %v", err)
+		util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, "Error parsing form data", struct{}{}).WriteResponse(w, r)
 		return
 	}
 
+	// Ambil data dari form
+	req.CategoryName = r.FormValue("category_name")
+
+	// Ambil file icon dari form
+	file, handler, err := r.FormFile("icon")
+	if err != nil {
+		log.Printf("error retrieving the file: %v", err)
+		util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, "Error retrieving the file", struct{}{}).WriteResponse(w, r)
+		return
+	}
+	defer file.Close()
+
+	// Simpan file icon
+	basePath, _ := os.Getwd()
+	publicPath := path.Join(basePath, "public")
+	iconPath := path.Join(publicPath, handler.Filename)
+	dst, err := os.Create(iconPath)
+	if err != nil {
+		log.Printf("error saving the file: %v", err)
+		util.NewResponse(http.StatusInternalServerError, http.StatusInternalServerError, "Error saving the file", struct{}{}).WriteResponse(w, r)
+		return
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, file); err != nil {
+		log.Printf("error copying the file: %v", err)
+		util.NewResponse(http.StatusInternalServerError, http.StatusInternalServerError, "Error copying the file", struct{}{}).WriteResponse(w, r)
+		return
+	}
+
+	// Update the request with the icon path
+	req.Icon = handler.Filename
+
 	// Validate request
-	if err := h.validate.Struct(req); err != nil {
-		log.Println("error validating request:", err)
-		resp = util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, err.Error(), struct{}{})
-		resp.WriteResponse(w, r)
+	validate := validator.New()
+	err = validate.Struct(req)
+	if err != nil {
+		var errMsg strings.Builder
+		for _, err := range err.(validator.ValidationErrors) {
+			errMsg.WriteString(err.Field() + " is invalid; ")
+		}
+		log.Printf("validation error: %v", errMsg.String())
+		util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, "Invalid input: "+errMsg.String(), struct{}{}).WriteResponse(w, r)
 		return
 	}
 
 	now := time.Now()
-	// Save Data item to database
-	err = h.db.CreateCategory(ctx, repo.CreateCategoryParams{
+	// Save category data to the database
+	err = h.db.CreateCategory(r.Context(), repo.CreateCategoryParams{
 		CategoryName: req.CategoryName,
-		Icon:         req.Icon,
+		Icon:         util.SqlString(iconPath).String, // Save the path to the icon
 		CreatedAt:    sql.NullTime{Time: now, Valid: true},
 		UpdatedAt:    sql.NullTime{Time: now, Valid: true},
 	})
 
 	if err != nil {
-		log.Println("error storing category to db:", err)
-		resp = util.NewResponse(http.StatusInternalServerError, http.StatusInternalServerError, "Try again later", struct{}{})
-		resp.WriteResponse(w, r)
+		log.Printf("error storing category to db: %v", err)
+		util.NewResponse(http.StatusInternalServerError, http.StatusInternalServerError, "Error creating category", struct{}{}).WriteResponse(w, r)
 		return
 	}
 
-	resp.Status = http.StatusOK
-	resp.Code = http.StatusOK
-	resp.Message = "Category has been created successfully"
-	resp.WriteResponse(w, r)
+	// Create a response with the category data
+	responseData := map[string]interface{}{
+		"category_name": req.CategoryName,
+		"icon":          req.Icon,
+	}
+
+	util.NewResponse(http.StatusOK, http.StatusOK, "Category created successfully", responseData).WriteResponse(w, r)
 }
 
 // GetAllCategories handles retrieving all categories
