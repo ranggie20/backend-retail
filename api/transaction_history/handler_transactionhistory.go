@@ -43,7 +43,7 @@ func (h *Handler) CreateTransactionHistory(w http.ResponseWriter, r *http.Reques
 
 	// Save TransactionHistory to the database
 	err = h.db.CreateTransactionHistory(ctx, repo.CreateTransactionHistoryParams{
-		SubscriptionsID:       util.SqlInt32(req.SubscriptionsID),
+		SubscriptionID:        util.SqlInt32(req.SubscriptionsID),
 		Quantity:              req.Quantity,
 		TotalAmount:           util.ConvertStringIDToInt32(strconv.FormatFloat(req.TotalAmount, 'f', -1, 64)),
 		IsPaid:                req.IsPaid,
@@ -77,7 +77,7 @@ func (h *Handler) GetAllTransactionHistory(w http.ResponseWriter, r *http.Reques
 	for _, t := range data {
 		res = append(res, TransactionHistory{
 			TransactionHistoryID:   t.TransactionHistoryID,
-			SubscriptionsID:        t.SubscriptionsID.Int32,
+			SubscriptionsID:        t.SubscriptionID.Int32,
 			Quantity:               t.Quantity,
 			TotalAmount:            float64(t.TotalAmount),
 			IsPaid:                 t.IsPaid,

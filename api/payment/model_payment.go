@@ -20,12 +20,7 @@ type (
 
 	// Model PaymentRequest is used for creating or updating a payment record
 	PaymentRequest struct {
-		UserID          int32 `json:"user_id" validate:"required"`
-		CourseID        int32 `json:"course_id" validate:"required"`
-		SubscriptionID  int32 `json:"subscription_id" validate:"required"`
 		PaymentMethodID int32 `json:"payment_method_id" validate:"required"`
-		PaymentStatusID int32 `json:"payment_status_id" validate:"required"`
-		TotalAmount     int32 `json:"amount" validate:"required"`
 	}
 
 	// Model GetPaymentRow represents the result of a query for payment details

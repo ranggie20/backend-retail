@@ -57,16 +57,26 @@ func New(db *sql.DB, rdb *redis.Client, q queue.Queuer, bucket buckets.Bucket, m
 	//payment Handler
 	PaymentHandler := payment.NewHandler(validate, dbGenerated)
 	// Routes for payment
-	r.Post("/create-payment", PaymentHandler.CreatePayment)
-	r.Get("/get-payment", PaymentHandler.GetPayment)
-	r.Get("/get-paymenthistory", PaymentHandler.GetPaymentHistory)
+	r.Route("/payment", func(r chi.Router) {
+		r.Use(auth.AuthMiddleware)
+		r.Use(auth.RequireRole("student"))
+
+		r.Post("/create-payment", PaymentHandler.CreatePayment)
+		r.Get("/get-payment", PaymentHandler.GetPayment)
+		r.Get("/get-paymenthistory", PaymentHandler.GetPaymentHistory)
+	})
 
 	//paymentmethod Handler
 	PaymentMethodHandler := paymentmethod.NewHandler(validate, dbGenerated)
 	// Routes for paymentmethod
-	r.Post("/create-paymentmethod", PaymentMethodHandler.CreatePaymentMethod)
-	r.Get("/get-paymentmethod", PaymentMethodHandler.GetAllPaymentMethod)
-	r.Get("/get-paymentmethod/{id}", PaymentMethodHandler.GetPaymentMethodById)
+	r.Route("/payment-method", func(r chi.Router) {
+		r.Use(auth.AuthMiddleware)
+		r.Use(auth.RequireRole("student"))
+
+		r.Post("/create-paymentmethod", PaymentMethodHandler.CreatePaymentMethod)
+		r.Get("/get-paymentmethod", PaymentMethodHandler.GetAllPaymentMethod)
+		r.Get("/get-paymentmethod/{id}", PaymentMethodHandler.GetPaymentMethodById)
+	})
 
 	//paymentstatus Handler
 	PaymentStatusHandler := paymentstatus.NewHandler(validate, dbGenerated)
@@ -80,11 +90,14 @@ func New(db *sql.DB, rdb *redis.Client, q queue.Queuer, bucket buckets.Bucket, m
 
 	//subscriptions Handler
 	SubscriptionHandler := subscriptions.NewHandler(validate, dbGenerated)
-	r.Post("/create-subscription", SubscriptionHandler.CreateSubscription)
-	r.Get("/get-subscription", SubscriptionHandler.GetAllSubscriptions)
-	// Routes for subscriptions
-	r.Post("/create-subscription", SubscriptionHandler.CreateSubscription)
-	r.Get("/get-subscription", SubscriptionHandler.GetAllSubscriptions)
+	r.Route("/subscription", func(r chi.Router) {
+		r.Use(auth.AuthMiddleware)
+		r.Use(auth.RequireRole("student"))
+
+		// Routes for subscriptions
+		r.Post("/create-subscription", SubscriptionHandler.CreateSubscription)
+		r.Get("/get-subscription", SubscriptionHandler.GetAllSubscriptions)
+	})
 
 	// Course Handler
 	CoursesHandler := courses.NewHandler(validate, dbGenerated)

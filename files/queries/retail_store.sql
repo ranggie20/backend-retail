@@ -255,7 +255,7 @@ DELETE FROM notification WHERE notification_id = $1;
 INSERT INTO subscriptions (
     user_id,
     course_id,
-    cart_id,
+    payment_id,
     is_correct,
     created_at,
     updated_at
@@ -293,6 +293,12 @@ LIMIT 6;
 -- name: GetSubscriptionByID :one
 SELECT * FROM subscriptions WHERE subscription_id = $1;
 
+-- name: GetLastSubscription :one
+SELECT s.subscription_id
+FROM subscriptions s
+WHERE s.user_id = $1
+ORDER BY subscription_id DESC
+LIMIT 1;
 
 -- name: CreatePayment :exec
 INSERT INTO payment (
@@ -321,6 +327,13 @@ INSERT INTO payment (
     ON s.subscription_id = p.subscription_id 
   LEFT JOIN cart c  
     ON c.cart_id = s.cart_id;
+
+-- name: GetLastPayment :one
+SELECT p.payment_id
+FROM payment p
+WHERE p.user_id = $1
+ORDER BY payment_id DESC
+LIMIT 1;
 
 -- name: GetPaymentHistory :many
 SELECT p.payment_id, c.course_id, c.course_name, p.total_amount, ps.payment_status_name, th.subcriptions_start_date 
@@ -360,7 +373,7 @@ SELECT * FROM payment_method WHERE payment_method_id = $1;
 
 -- name: CreateTransactionHistory :exec
 INSERT INTO transaction_history (
-    subscriptions_id,
+    subscription_id,
     quantity,
     total_amount,
     is_paid,

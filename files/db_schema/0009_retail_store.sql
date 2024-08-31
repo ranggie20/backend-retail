@@ -48,7 +48,7 @@ CREATE TABLE courses_video (
 
 CREATE TABLE transaction_history (
   transaction_history_id SERIAL PRIMARY KEY,
-  subscriptions_id INTEGER,
+  subscription_id INTEGER,
   quantity INTEGER NOT NULL,
   total_amount INTEGER NOT NULL,
   is_paid VARCHAR(255) NOT NULL,
@@ -93,7 +93,7 @@ CREATE TABLE subscriptions (
   subscription_id SERIAL PRIMARY KEY,
   user_id INTEGER,
   course_id INTEGER,
-  cart_id INTEGER,
+  payment_id INTEGER,
   is_correct VARCHAR(255) NOT NULL,
   created_at TIMESTAMP,
   updated_at TIMESTAMP

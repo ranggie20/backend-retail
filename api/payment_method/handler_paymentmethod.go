@@ -63,7 +63,15 @@ func (h *Handler) GetAllPaymentMethod(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	util.NewResponse(http.StatusOK, http.StatusOK, "Payment methods retrieved successfully", paymentMethods).WriteResponse(w, r)
+	var res []PaymentMethod
+	for _, d := range paymentMethods {
+		res = append(res, PaymentMethod{
+			PaymentMethodID:   d.PaymentMethodID,
+			PaymentMethodName: d.PaymentMethodName,
+		})
+	}
+
+	util.NewResponse(http.StatusOK, http.StatusOK, "Payment methods retrieved successfully", res).WriteResponse(w, r)
 }
 
 func (h *Handler) GetPaymentMethodById(w http.ResponseWriter, r *http.Request) {
