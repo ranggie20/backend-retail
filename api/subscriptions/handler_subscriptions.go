@@ -89,7 +89,7 @@ func (h *Handler) CreateSubscription(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete cart because we have processeed payment
-	err = h.db.DeleteCart(ctx, util.SqlInt32(userIDInt))
+	err = h.db.DeleteCartByUserID(ctx, util.SqlInt32(userIDInt))
 	if err != nil {
 		log.Println("error deleting cart: ", err)
 		resp = util.NewResponse(http.StatusInternalServerError, http.StatusInternalServerError, "Try again later", struct{}{})

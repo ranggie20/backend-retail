@@ -183,7 +183,11 @@ INSERT INTO wishlist (
 );
 
 -- name: GetAllWishlists :many
-SELECT * FROM wishlist WHERE user_id = $1;
+SELECT *
+FROM wishlist
+LEFT JOIN courses
+ON wishlist.course_id = courses.course_id
+WHERE user_id = $1;
 
 -- name: GetWishlistByID :one
 SELECT * FROM wishlist WHERE user_id = $1;
@@ -192,7 +196,7 @@ SELECT * FROM wishlist WHERE user_id = $1;
 UPDATE wishlist SET user_id = $2, course_id = $3, updated_at = $4 WHERE wishlist_id = $1;
 
 -- name: DeleteWishlist :exec
-DELETE FROM wishlist WHERE user_id = $1;
+DELETE FROM wishlist WHERE user_id = $1 AND course_id = $2;
 
 -- name: CreateCart :exec 
 INSERT INTO cart(
@@ -228,8 +232,10 @@ WHERE cr.user_id = $1;
 UPDATE cart SET cart_id = $1, course_id = $2, course_name = $3, price = $4, quantity = $5, total_amount = $6 WHERE cart_id = $7;
 
 -- name: DeleteCart :exec
-DELETE FROM cart WHERE user_id = $1;
+DELETE FROM cart WHERE user_id = $1 AND course_id = $2;
 
+-- name: DeleteCartByUserID :exec
+DELETE FROM cart WHERE user_id = $1;
 
 -- name: CreateNotification :exec
 INSERT INTO notification (

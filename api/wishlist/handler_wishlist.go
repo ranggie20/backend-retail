@@ -59,8 +59,8 @@ func (h *Handler) CreateWishlist(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetAllWishlist(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("userID").(sql.NullInt32)
-	data, err := h.db.GetAllWishlists(r.Context(), userID)
+	userID := r.Context().Value("user_id").(int32)
+	data, err := h.db.GetAllWishlists(r.Context(), util.SqlInt32(userID))
 	if err != nil {
 		log.Println("error fetching all wishlist items:", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -70,8 +70,11 @@ func (h *Handler) GetAllWishlist(w http.ResponseWriter, r *http.Request) {
 	var res []Wishlist
 	for _, d := range data {
 		res = append(res, Wishlist{
-			WishlistID: d.WishlistID,
-			// ...
+			WishlistID:  d.WishlistID,
+			CourseID:    d.CourseID.Int32,
+			CourseName:  d.CourseName.String,
+			CoursePhoto: d.Thumbnail.String,
+			CoursePrice: d.Price.Int32,
 		})
 	}
 
@@ -183,18 +186,21 @@ func (h *Handler) DeleteWishlist(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Buat nilai sql.NullInt32 untuk userID
-	nullUserID := sql.NullInt32{
-		Int32: userIDInt,
-		Valid: true, // Set Valid to true karena kita memiliki user ID yang valid
+	// Ambil course ID
+	courseID := chi.URLParam(r, "course_id")
+	courseIDInt, err := strconv.Atoi(courseID)
+	if err != nil {
+		http.Error(w, "Invalid course id", http.StatusBadRequest)
+		return
 	}
 
 	// Hapus item wishlist dari database berdasarkan userID
-	err := h.db.DeleteWishlist(r.Context(), nullUserID)
-	if err == sql.ErrNoRows {
-		util.NewResponse(http.StatusNotFound, http.StatusNotFound, "Wishlist item not found", struct{}{}).WriteResponse(w, r)
-		return
-	} else if err != nil {
+	err = h.db.DeleteWishlist(r.Context(), repo.DeleteWishlistParams{
+		CourseID: util.SqlInt32(int32(courseIDInt)),
+		UserID:   util.SqlInt32(userIDInt),
+	})
+
+	if err != nil {
 		log.Println("error deleting wishlist item:", err)
 		util.NewResponse(http.StatusInternalServerError, http.StatusInternalServerError, "Internal server error", struct{}{}).WriteResponse(w, r)
 		return

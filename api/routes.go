@@ -129,7 +129,7 @@ func New(db *sql.DB, rdb *redis.Client, q queue.Queuer, bucket buckets.Bucket, m
 
 		r.Post("/create-cart", CartHandler.CreateCart)
 		r.Get("/getall-cart", CartHandler.GetAllCart)
-		r.Delete("/delete-cart/{user_id}", CartHandler.DeleteCart)
+		r.Delete("/delete-cart/{course_id}", CartHandler.DeleteCart)
 		r.Get("/cartpage", CartHandler.GetCartByUserID)
 	})
 
@@ -155,7 +155,7 @@ func New(db *sql.DB, rdb *redis.Client, q queue.Queuer, bucket buckets.Bucket, m
 
 		r.Post("/create-wishlist", WishlistHandler.CreateWishlist)
 		r.Get("/wishlist", WishlistHandler.GetAllWishlist)
-		r.Delete("/delete-wishlist/{user_id}", WishlistHandler.DeleteWishlist)
+		r.Delete("/delete-wishlist/{course_id}", WishlistHandler.DeleteWishlist)
 	})
 
 	// User Handler
@@ -227,8 +227,6 @@ func New(db *sql.DB, rdb *redis.Client, q queue.Queuer, bucket buckets.Bucket, m
 	workingDir, _ := os.Getwd()
 	fileServer := http.FileServer(http.Dir(path.Join(workingDir, "public")))
 	r.Route("/static", func(r chi.Router) {
-		r.Use(auth.AuthMiddleware)
-
 		r.Handle("/*", http.StripPrefix("/static/", fileServer))
 	})
 

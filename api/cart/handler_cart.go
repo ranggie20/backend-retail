@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 
+	"github.com/go-chi/chi/v5"
 	repo "github.com/online-bnsp/backend/repo/generated"
 	"github.com/online-bnsp/backend/util"
 )
@@ -175,12 +177,20 @@ func (h *Handler) DeleteCart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Menghapus data cart dari database berdasarkan user_id
-	err := h.db.DeleteCart(r.Context(), sql.NullInt32{Int32: userIDInt, Valid: true})
-	if err == sql.ErrNoRows {
-		util.NewResponse(http.StatusNotFound, http.StatusNotFound, "Cart item not found", struct{}{}).WriteResponse(w, r)
+	// Ambil course ID
+	courseID := chi.URLParam(r, "course_id")
+	courseIDInt, error := strconv.Atoi(courseID)
+	if error != nil {
+		http.Error(w, "Invalid course id", http.StatusBadRequest)
 		return
-	} else if err != nil {
+	}
+
+	// Menghapus data cart dari database berdasarkan user_id
+	err := h.db.DeleteCart(r.Context(), repo.DeleteCartParams{
+		UserID:   util.SqlInt32(userIDInt),
+		CourseID: util.SqlInt32(int32(courseIDInt)),
+	})
+	if err != nil {
 		log.Println("error deleting cart item:", err)
 		util.NewResponse(http.StatusInternalServerError, http.StatusInternalServerError, "Internal server error", struct{}{}).WriteResponse(w, r)
 		return
