@@ -6,9 +6,9 @@ type (
 	User struct {
 		UserID    int32  `json:"user_id"`
 		Nama      string `json:"nama"`
-		Email     string `json: "email"`
-		Password  string `json:"password"`
-		CreatedAt string `json:"created_at"`
+		Email     string `json:"email"`
+		Password  string `json:"password,omitempty"`
+		CreatedAt string `json:"created_at,omitempty"`
 		Role      string `json:"role"`
 		Photo     string `json:"photo"`
 	}
@@ -18,6 +18,12 @@ type (
 		Password string `json:"password" validate:"required"`
 		Role     string `json:"role" validate:"required"`
 		Photo    string `json:"photo"`
+	}
+
+	UpdateUserRequest struct {
+		Nama  string `json:"Nama" validate:"required"`
+		Email string `json:"Email" validate:"required"`
+		Photo string `json:"photo"`
 	}
 
 	LoginRequest struct {

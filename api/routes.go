@@ -167,22 +167,27 @@ func New(db *sql.DB, rdb *redis.Client, q queue.Queuer, bucket buckets.Bucket, m
 		r.Put("/profile/{id}", userHandler.UpdateUser)
 		r.Get("/list-teacher", userHandler.GetAllUserByTeacher)
 	})
+
 	//route user
 	r.Route("/user", func(r chi.Router) {
-		r.Post("/register", userHandler.CreateUser)
 		r.Get("/all-user", userHandler.GetAllUser)
 		r.Get("/list-teacher", userHandler.GetAllUserByTeacher)
 		r.Get("/list-student", userHandler.GetAllUserByStudent)
 		r.Get("/user/{id}", userHandler.GetUserByID)
 		r.Put("/profile/{id}", userHandler.UpdateUser)
+
+		r.Post("/register", userHandler.Register)
 		r.Post("/sign-in", userHandler.Login)
 
-		r.Route("/sign-out", func(r chi.Router) {
+		r.Route("/", func(r chi.Router) {
 			r.Use(auth.AuthMiddleware)
 
-			r.Post("/", userHandler.Logout)
+			r.Post("/profile", userHandler.UpdateUser)
+			r.Get("/user-info", userHandler.UserInfo)
+			r.Post("/sign-out", userHandler.Logout)
 		})
 	})
+
 	r.Route("/admin", func(r chi.Router) {
 		r.Use(auth.AuthMiddleware)
 		r.Use(auth.RequireRole("admin"))

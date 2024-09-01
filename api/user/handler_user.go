@@ -22,6 +22,89 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
+	var req UserRequest
+
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		log.Println("error parsing request:", err)
+		resp := util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, "Error parsing request", struct{}{})
+		resp.WriteResponse(w, r)
+		return
+	}
+
+	// Validate request
+	if err := h.validate.Struct(req); err != nil {
+		log.Println("error validation request:", err)
+		resp := util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, err.Error(), struct{}{})
+		resp.WriteResponse(w, r)
+		return
+	}
+
+	// Hash the password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Printf("error hashing password: %v", err)
+		util.NewResponse(http.StatusInternalServerError, http.StatusInternalServerError, "Error hashing password", struct{}{}).WriteResponse(w, r)
+		return
+	}
+
+	err = h.db.CreateUser(r.Context(), repo.CreateUserParams{
+		Nama:     req.Nama,
+		Email:    req.Email,
+		Password: string(hashedPassword),
+		Role:     req.Role,
+		Photo:    util.SqlString("public/default.png"),
+	})
+
+	if err != nil {
+		// Handle duplicate key error
+		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
+			log.Printf("duplicate key error: %v", err)
+			util.NewResponse(http.StatusConflict, http.StatusConflict, "Email already exists", struct{}{}).WriteResponse(w, r)
+			return
+		}
+
+		// Log and respond for other errors
+		log.Printf("error creating user: %v", err)
+		util.NewResponse(http.StatusInternalServerError, http.StatusInternalServerError, "Error creating user", struct{}{}).WriteResponse(w, r)
+		return
+	}
+
+	util.NewResponse(http.StatusOK, http.StatusOK, "User registered successfully", struct{}{}).WriteResponse(w, r)
+}
+
+func (h *Handler) UserInfo(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("user_id")
+	if userID == "" {
+		http.Error(w, "user_id is required", http.StatusBadRequest)
+		return
+	}
+
+	// Panggil metode yang mengeksekusi query GetCartByUserID
+	userIDInt, ok := userID.(int32)
+	if !ok {
+		http.Error(w, "Invalid user_id", http.StatusBadRequest)
+		return
+	}
+
+	user, err := h.db.GetUserByID(r.Context(), userIDInt)
+	if err != nil {
+		log.Printf("error getting user info: %v", err)
+		util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, "Error getting user info", struct{}{}).WriteResponse(w, r)
+		return
+	}
+
+	var res User
+	res.UserID = user.UserID
+	res.Nama = user.Nama
+	res.Email = user.Email
+	res.Role = user.Role
+	res.Photo = user.Photo.String
+
+	util.NewResponse(http.StatusOK, http.StatusOK, "User info successfully requested", res).WriteResponse(w, r)
+}
+
 func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var req UserRequest
 
@@ -232,48 +315,68 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	resp := util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, "Bad request", map[string]interface{}{})
 
-	// Get the user ID from the URL parameters
-	userID := chi.URLParam(r, "id")
+	userID := r.Context().Value("user_id")
 	if userID == "" {
-		resp = util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, "User ID is required", struct{}{})
-		resp.WriteResponse(w, r)
+		http.Error(w, "user_id is required", http.StatusBadRequest)
 		return
 	}
 
-	// Convert userID to int32
-	id, err := strconv.Atoi(userID)
+	// Panggil metode yang mengeksekusi query GetCartByUserID
+	userIDInt, ok := userID.(int32)
+	if !ok {
+		http.Error(w, "Invalid user_id", http.StatusBadRequest)
+		return
+	}
+
+	var req UpdateUserRequest
+
+	// Parse form data
+	err := r.ParseMultipartForm(10 << 20) // batasan ukuran file (10MB)
 	if err != nil {
-		log.Println("invalid user ID:", err)
-		resp = util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, "Invalid user ID", struct{}{})
-		resp.WriteResponse(w, r)
+		log.Printf("error parsing form data: %v", err)
+		util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, "Error parsing form data", struct{}{}).WriteResponse(w, r)
 		return
 	}
 
-	var req UserRequest
-	err = json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		log.Println("error parsing request:", err)
-		resp = util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, "Error parsing request", struct{}{})
-		resp.WriteResponse(w, r)
-		return
-	}
+	// Ambil data dari form
+	req.Nama = r.FormValue("nama")
+	req.Email = r.FormValue("email")
 
-	// Validate request
-	if err := h.validate.Struct(req); err != nil {
-		log.Println("error validation request:", err)
-		resp = util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, err.Error(), struct{}{})
-		resp.WriteResponse(w, r)
-		return
+	// Ambil file photo dari form
+	file, handler, err := r.FormFile("photo")
+	photoPath := path.Join("public", "default.png")
+	if err == nil {
+		defer file.Close()
+
+		// Simpan file photo
+		basePath, _ := os.Getwd()
+
+		publicPath := path.Join(basePath, "public")
+
+		photoPath = path.Join(publicPath, handler.Filename)
+		dst, err := os.Create(photoPath)
+		if err != nil {
+			log.Printf("error saving the file: %v", err)
+			util.NewResponse(http.StatusInternalServerError, http.StatusInternalServerError, "Error saving the file", struct{}{}).WriteResponse(w, r)
+			return
+		}
+		defer dst.Close()
+
+		if _, err := io.Copy(dst, file); err != nil {
+			log.Printf("error copying the file: %v", err)
+			util.NewResponse(http.StatusInternalServerError, http.StatusInternalServerError, "Error copying the file", struct{}{}).WriteResponse(w, r)
+			return
+		}
+
+		photoPath = path.Join("static", handler.Filename)
 	}
 
 	// Update the user in the database
 	err = h.db.UpdateUser(ctx, repo.UpdateUserParams{
-		UserID:   int32(id),
-		Nama:     req.Nama,
-		Email:    req.Email,
-		Password: req.Password,
-		Role:     req.Role,
-		Photo:    util.SqlString(req.Photo),
+		UserID: int32(userIDInt),
+		Nama:   req.Nama,
+		Email:  req.Email,
+		Photo:  util.SqlString(photoPath),
 	})
 
 	if err != nil {
@@ -291,7 +394,7 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	resp := util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, "Bad request", map[string]interface{}{})
+	var resp *util.Response
 
 	var jwtKey = []byte("your_secret_key") // Replace with your secret key
 	var req LoginRequest

@@ -23,7 +23,7 @@ SELECT * FROM "users" WHERE role = $1;
 SELECT * FROM "users" WHERE role = $1;
 
 -- name: UpdateUser :exec
-UPDATE "users" SET nama = $1, email = $2, password = $3, role = $4, photo = $5 WHERE user_id = $6;
+UPDATE "users" SET nama = $1, email = $2, photo = $3 WHERE user_id = $4;
 
 -- name: DeleteUser :exec
 DELETE FROM "users" WHERE user_id = $1;
