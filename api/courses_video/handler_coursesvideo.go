@@ -3,6 +3,9 @@ package coursesvideo
 import (
 	"database/sql"
 	"encoding/json"
+	"io"
+	"os"
+	"path"
 	"log"
 	"net/http"
 	"strconv"
@@ -14,26 +17,73 @@ import (
 
 func (h *Handler) CreateCourseVideo(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	resp := util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, "Bad request", map[string]interface{}{})
 
-	var req CourseVideoRequest
-	err := json.NewDecoder(r.Body).Decode(&req)
+	// Parse multipart form data
+	err := r.ParseMultipartForm(10 << 20) // 10MB limit
 	if err != nil {
-		log.Println("error parsing request:", err)
-		resp = util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, "Error parsing request", struct{}{})
-		resp.WriteResponse(w, r)
+		log.Printf("error parsing form data: %v", err)
+		util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, "Error parsing form data", struct{}{}).WriteResponse(w, r)
 		return
 	}
+
+	// Retrieve form values
+	var req CourseVideoRequest
+	req.CourseVideoName = r.FormValue("course_video_name")
+
+	// Convert course_id to int32
+	courseIDStr := r.FormValue("course_id")
+	courseID, err := strconv.Atoi(courseIDStr)
+	if err != nil {
+		log.Printf("error converting course_id to int32: %v", err)
+		util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, "Invalid course_id", struct{}{}).WriteResponse(w, r)
+		return
+	}
+	req.CourseID = int32(courseID)
+
+	// Retrieve the video file from form
+	file, handler, err := r.FormFile("path_video")
+	if err != nil {
+		log.Printf("error retrieving the file: %v", err)
+		util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, "Error retrieving the file", struct{}{}).WriteResponse(w, r)
+		return
+	}
+	defer file.Close()
+
+	// Save the video file
+	basePath, err := os.Getwd()
+	if err != nil {
+		log.Printf("error getting current working directory: %v", err)
+		util.NewResponse(http.StatusInternalServerError, http.StatusInternalServerError, "Error getting working directory", struct{}{}).WriteResponse(w, r)
+		return
+	}
+	publicPath := path.Join(basePath, "public", "videos")
+	videoPath := path.Join(publicPath, handler.Filename)
+
+	dst, err := os.Create(videoPath)
+	if err != nil {
+		log.Printf("error creating video file: %v", err)
+		util.NewResponse(http.StatusInternalServerError, http.StatusInternalServerError, "Error creating video file", struct{}{}).WriteResponse(w, r)
+		return
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, file); err != nil {
+		log.Printf("error copying the file: %v", err)
+		util.NewResponse(http.StatusInternalServerError, http.StatusInternalServerError, "Error copying the video file", struct{}{}).WriteResponse(w, r)
+		return
+	}
+
+	// Update the request with the video path
+	req.PathVideo = handler.Filename
 
 	// Validate request
 	if err := h.validate.Struct(req); err != nil {
 		log.Println("error validating request:", err)
-		resp = util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, err.Error(), struct{}{})
-		resp.WriteResponse(w, r)
+		util.NewResponse(http.StatusBadRequest, http.StatusBadRequest, err.Error(), struct{}{}).WriteResponse(w, r)
 		return
 	}
 
-	// Save Data item to database
+	// Save course video data to the database
 	err = h.db.CreateCourseVideo(ctx, repo.CreateCourseVideoParams{
 		CourseID:        sql.NullInt32{Int32: req.CourseID, Valid: true},
 		CourseVideoName: req.CourseVideoName,
@@ -41,16 +91,19 @@ func (h *Handler) CreateCourseVideo(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
-		log.Println("error storing course video to db: ", err)
-		resp = util.NewResponse(http.StatusInternalServerError, http.StatusInternalServerError, "Try again later", struct{}{})
-		resp.WriteResponse(w, r)
+		log.Println("error storing course video to db:", err)
+		util.NewResponse(http.StatusInternalServerError, http.StatusInternalServerError, "Error storing course video", struct{}{}).WriteResponse(w, r)
 		return
 	}
 
-	resp.Status = http.StatusOK
-	resp.Code = http.StatusOK
-	resp.Message = "Course video has been created successfully"
-	resp.WriteResponse(w, r)
+	// Create a response with the course video data
+	responseData := map[string]interface{}{
+		"course_video_name": req.CourseVideoName,
+		"course_id":         req.CourseID,
+		"path_video":        req.PathVideo,
+	}
+
+	util.NewResponse(http.StatusOK, http.StatusOK, "Course video created successfully", responseData).WriteResponse(w, r)
 }
 
 func (h *Handler) GetCourseVideoHandler(w http.ResponseWriter, r *http.Request) {

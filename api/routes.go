@@ -111,13 +111,14 @@ func New(db *sql.DB, rdb *redis.Client, q queue.Queuer, bucket buckets.Bucket, m
 		r.Use(auth.RequireRole("student"))
 
 		r.Get("/", CoursesHandler.GetMyCoursePage)
+		r.Get("/{course_id}", CoursesHandler.GetMyCourse)
 	})
 	r.Route("/teacher", func(r chi.Router) {
 		r.Use(auth.AuthMiddleware)
 		r.Use(auth.RequireRole("teacher", "admin"))
 
 		r.Post("/create-course", CoursesHandler.CreateCourses)
-		r.Put("/Update-course/{id}", CoursesHandler.UpdateCourse)
+		r.Put("/update-course/{id}", CoursesHandler.UpdateCourse)
 		r.Delete("/delete-course/{id}", CoursesHandler.DeleteCourse)
 	})
 
@@ -210,6 +211,12 @@ func New(db *sql.DB, rdb *redis.Client, q queue.Queuer, bucket buckets.Bucket, m
 		r.Delete("/delete-category/{id}", CategoryHandler.DeleteCategory)
 	})
 
+	workingDir, _ := os.Getwd()
+	fileServer := http.FileServer(http.Dir(path.Join(workingDir, "public")))
+	r.Route("/static", func(r chi.Router) {
+		r.Handle("/*", http.StripPrefix("/static/", fileServer))
+	})
+
 	r.Route("/public", func(r chi.Router) {
 		r.Get("/category", CategoryHandler.GetAllCategories)
 		r.Get("/categoryy", CategoryHandler.GetCategory) //getbynamecategory
@@ -222,12 +229,6 @@ func New(db *sql.DB, rdb *redis.Client, q queue.Queuer, bucket buckets.Bucket, m
 		r.Get("/popular", CoursesHandler.GetPopularCourses)
 		r.Get("/price", CoursesHandler.GetCoursePrice)
 		r.Get("/get-course/{course_id}", CoursesHandler.GetCourseByID)
-	})
-
-	workingDir, _ := os.Getwd()
-	fileServer := http.FileServer(http.Dir(path.Join(workingDir, "public")))
-	r.Route("/static", func(r chi.Router) {
-		r.Handle("/*", http.StripPrefix("/static/", fileServer))
 	})
 
 	r.Route("/auth", func(r chi.Router) {

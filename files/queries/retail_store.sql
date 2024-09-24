@@ -84,18 +84,35 @@ LEFT JOIN  courses c  ON c.course_id = s.course_id WHERE user_id = $1;
 -- name: GetAllCourse :many
 SELECT * FROM courses;
 
+-- name: GetMyCourse :one
+SELECT * 
+FROM subscriptions 
+LEFT JOIN courses ON subscriptions.course_id = courses.course_id
+LEFT JOIN courses_video ON courses.course_id = courses_video.course_id
+WHERE subscriptions.course_id = $1 
+AND subscriptions.user_id = $2;
+
+-- name: GetAllMyCourse :many
+SELECT * 
+FROM subscriptions 
+LEFT JOIN courses ON subscriptions.course_id = courses.course_id 
+LEFT JOIN courses_video ON courses.course_id = courses_video.course_id
+WHERE subscriptions.user_id = $1;
+
 -- name: GetCourseByID :one
-SELECT * FROM courses WHERE course_id = $1;
+SELECT * FROM courses LEFT JOIN courses_video ON courses.course_id = courses_video.course_id WHERE courses.course_id = $1;
 
 -- name: GetCourseByNew :one
 SELECT * FROM courses ORDER BY created_at DESC;
 
 -- name: UpdateCourse :exec
-UPDATE courses SET course_id = $1, course_name = $2,course_description = $3, category_id = $4, price = $5, thumbnail  = $6, created_at = $7, deleted_at = $8, updated_at= $9 WHERE course_id = $10;
+UPDATE courses SET course_name = $1,course_description = $2, category_id = $3, price = $4, thumbnail  = $5, updated_at= $6 WHERE course_id = $7;
 
 -- name: DeleteCourse :exec
 DELETE FROM courses WHERE course_id = $1;
 
+-- name: GetLastCourseID :one
+SELECT course_id FROM courses ORDER BY course_id DESC LIMIT 1;
 
 -- name: CreateCategory :exec
 INSERT INTO categories (
@@ -163,6 +180,9 @@ LEFT JOIN courses_video cv  ON c.course_id = cv.course_id;
 
 -- name: GetCourseVideoByID :one
 SELECT * FROM courses_video WHERE course_video_id = $1;
+
+-- name: GetCourseVideoByCourseID :one
+SELECT * FROM courses_video WHERE course_id = $1;
 
 -- name: UpdateCourseVideo :exec
 UPDATE courses_video SET course_id = $1, course_video_name = $2, path_video = $3, updated_at = $4 WHERE course_video_id = $5;

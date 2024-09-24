@@ -21,9 +21,10 @@ type (
 		CategoryID        int32        `json:"category_id"`        // Category ID of the course
 		Price             int32        `json:"price"`              // Price of the course
 		Thumbnail         string       `json:"thumbnail"`          // Thumbnail URL for the course
-		CreatedAt         sql.NullTime `json:"created_at"`         // Timestamp of course creation
-		DeletedAt         sql.NullTime `json:"deleted_at"`         // Timestamp of course deletion
-		UpdatedAt         sql.NullTime `json:"updated_at"`         // Timestamp of the last course update
+		Video             string       `json:"video"`
+		CreatedAt         sql.NullTime `json:"created_at"` // Timestamp of course creation
+		DeletedAt         sql.NullTime `json:"deleted_at"` // Timestamp of course deletion
+		UpdatedAt         sql.NullTime `json:"updated_at"` // Timestamp of the last course update
 	}
 
 	// CourseRequest represents the structure for creating or updating a course.
@@ -50,5 +51,15 @@ type (
 		CourseID          int32  `json:"course_id"`
 		CourseName        string `json:"course_name"`
 		CourseDescription string `json:"course_description"`
+	}
+
+	MyCoursePage struct {
+		SubscriptionID    int32  `json:"subscription_id"`
+		UserID            int32  `json:"user_id"`
+		CourseID          int32  `json:"course_id"`
+		CourseName        string `json:"course_name"`
+		CourseDescription string `json:"course_description"`
+		Thumbnail         string `json:"thumbnail"`
+		Video             string `json:"video,omitempty"`
 	}
 )

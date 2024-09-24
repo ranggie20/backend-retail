@@ -54,7 +54,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		Email:    req.Email,
 		Password: string(hashedPassword),
 		Role:     req.Role,
-		Photo:    util.SqlString("public/default.png"),
+		Photo:    util.SqlString("static/default.png"),
 	})
 
 	if err != nil {
@@ -429,7 +429,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		UserID:   data.UserID,
 		Role:     role, // Ensure role is included
 		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(15 * time.Minute).Unix(),
+			ExpiresAt: time.Now().Add(24 * time.Hour).Unix(),
 			IssuedAt:  time.Now().Unix(),
 			Issuer:    "elearning",
 		},
@@ -448,7 +448,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "token",
 		Value:    tokenString,
-		Expires:  time.Now().Add(15 * time.Minute),
+		Expires:  time.Now().Add(24 * time.Hour),
 		HttpOnly: true,
 		Secure:   false, // Set to true if using HTTPS
 		Path:     "/",
